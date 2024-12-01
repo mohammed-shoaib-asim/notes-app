@@ -1,0 +1,4 @@
+/Backend/.env
+/Backend/node_modules
+/Frontend/notes-app/node_modules
+node_modules
