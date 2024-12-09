@@ -87,18 +87,34 @@ const Home = () => {
 
   // Delete a note
   const deleteNote = async (data) => {
-    const noteId = data._id;
-    try {
-      const response = await axiosInstance.delete('/delete-note/' + noteId);
-      if (response.data && !response.data.error) {
-        showToastMessage("Note Deleted successfully", 'delete');
-        getAllNotes();
-        onclose();
-      }
-    } catch (error) {
-      console.log("An unexpected error occurred while deleting note. Please try again later");
+    // Validate the data object and its _id field
+    if (!data || !data._id) {
+        console.error("Invalid data passed to deleteNote:", data);
+        showToastMessage("Failed to delete note. Invalid note data.", "error");
+        return;
     }
-  };
+
+    const noteId = data._id;
+
+    try {
+        console.log("Attempting to delete note with ID:", noteId);
+
+        // Make DELETE API call
+        const response = await axiosInstance.delete(`/delete-note/${noteId}`);
+        
+        // Handle successful response
+        if (response.data && !response.data.error) {
+            showToastMessage("Note deleted successfully", 'delete');
+            getAllNotes(); // Refresh the notes list
+            // onclose(); // Close any related UI
+        }
+    } catch (error) {
+        // Handle errors gracefully
+        console.error("Error occurred while deleting note:", error);
+        showToastMessage("An unexpected error occurred while deleting note. Please try again later.", "error");
+    }
+};
+
 
   // Search for notes
   const onSearchNote = async (query) => {
@@ -200,10 +216,11 @@ const Home = () => {
         }}
         className="w-[40%] max-h-3/4 bg-white rounded-md mx-auto mt-14 p-5 overflow-scroll"
         contentLabel=""
+        appElement={document.getElementById('root')}
       >  
         <AddEditNotes
           type={openAddEditModal.type}
-          notedata={openAddEditModal.data}
+          noteData={openAddEditModal.data}
           onClose={() => {
             setOpenAddEditModal({
               isShown: false,

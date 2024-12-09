@@ -1,12 +1,14 @@
 import React from 'react'
-import { getInitials } from '../../utils/helper'
+// import { getInitials } from '../../utils/helper'
+import { getInitials } from '../../utils/getInitials';
 
 const ProfileInfo = ({userInfo,onLogout}) => {
   return (
     userInfo &&(
     <div className='flex items-center gap-3'>
       <div className='w-12 h-12 flex items-center justify-center rounded-full text-slate-950 font-medium bg-slate-100'>
-        {getInitials('userInfo?.fullName')}
+        {/* {getInitials(userInfo?.fullName)} */}
+        <p>U</p>
       </div>
       <div>
         <p className='text-sm font-medium'>{userInfo?.fullName}</p>

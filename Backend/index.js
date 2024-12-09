@@ -46,7 +46,7 @@ app.post("/create-account", async (req, res) => {
         return res.status(400).json({ error: "password is required" });
     }
 
-    const isUser = await User.findOne({ email: email }); // Use User.findOne() directly
+    const isUser = await User.findOne({ email: email });
     if (isUser) {
         return res.json({ error: "User already exists" });
     }
@@ -76,35 +76,29 @@ app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     if (!email) {
-        console.log("email is required");
         return res.status(400).json({ message: "email is required" });
     }
     if (!password) {
-        console.log("password is required");
         return res.status(400).json({ message: "password is required" });
     }
 
     const userInfo = await User.findOne({ email: email });
-    if (!userInfo) {
-        return res.status(400).json({ message: "Invalid email or password" });
-    }
-
-    if (userInfo.email === email && userInfo.password === password) {
-        const user = { user: userInfo };
-        const accessToken = sign(user, process.env.ACCESS_TOKEN_SECRET, {
-            expiresIn: "3600m",
-        });
-
-        console.log(`User logged in: ${email}`);
-        return res.json({
-            error: false,
-            message: "Login successful",
-            email,
-            accessToken,
-        });
-    } else {
+    if (!userInfo || userInfo.password !== password) {
         return res.status(400).json({ message: "Invalid credentials" });
     }
+
+    const user = { user: userInfo };
+    const accessToken = sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "3600m",
+    });
+
+    console.log(`User logged in: ${email}`);
+    return res.json({
+        error: false,
+        message: "Login successful",
+        email,
+        accessToken,
+    });
 });
 
 // Get User
@@ -116,48 +110,15 @@ app.get("/get-user", authenticateToken, async (req, res) => {
         return res.sendStatus(401);
     }
     return res.json({
-        user: { fullname: isUser.fullName, email: isUser.email, "_id": isUser._id, createdOn: isUser.createdOn },
+        user: { fullname: isUser.fullName, email: isUser.email, _id: isUser._id, createdOn: isUser.createdOn },
         message: "User retrieved successfully",
     });
 });
 
 // Add note
-// app.post("/add-note", authenticateToken, async (req, res) => {
-//     const { title, content, tags } = req.body;
-//     const { user } = req.user;
-
-//     if (!title) {
-//         return res.status(400).json({ error: true, message: "title is required" });
-//     }
-//     if (!content) {
-//         return res.status(400).json({ error: true, message: "content is required" });
-//     }
-
-//     try {
-//         const note = new Note({
-//             title,
-//             content,
-//             tags,
-//             user: user._id,
-//         });
-//         await note.save();
-//         console.log("Note added:", note);
-//         return res.json({
-//             error: false,
-//             message: "Note added successfully",
-//             note,
-//         });
-//     } catch (err) {
-//         console.error("Error adding note:", err);
-//         return res.status(500).json({ error: true, message: "Internal server error" });
-//     }
-// });
-
-
-// Add note updated to include userId
 app.post("/add-note", authenticateToken, async (req, res) => {
     const { title, content, tags } = req.body;
-    const { user } = req.user;  // Make sure you're getting the user from the token
+    const { user } = req.user;
 
     if (!title) {
         return res.status(400).json({ error: true, message: "Title is required" });
@@ -167,12 +128,11 @@ app.post("/add-note", authenticateToken, async (req, res) => {
     }
 
     try {
-        // Create a new note with userId being the user's ObjectId
         const note = new Note({
             title,
             content,
             tags,
-            userId: user._id,  // Correctly assign the userId here
+            userId: user._id,
         });
 
         await note.save();
@@ -188,27 +148,24 @@ app.post("/add-note", authenticateToken, async (req, res) => {
     }
 });
 
-
 // Edit note
-app.put("/edit-note/:id", authenticateToken, async (req, res) => {
-    const noteId = req.params.id;
+app.put("/edit-note/:noteId", authenticateToken, async (req, res) => {
+    const { noteId } = req.params;
     const { title, content, tags, isPinned } = req.body;
     const { user } = req.user;
 
-    if (!title && !content && !tags) {
-        return res.status(400).json({ error: true, message: "No changes provided" });
-    }
     try {
-        const note = await Note.findOne({ _id: noteId, user: user._id });
+        const note = await Note.findOne({ _id: noteId, userId: user._id });
         if (!note) {
             return res.status(404).json({ error: true, message: "Note not found" });
         }
+
         if (title) note.title = title;
         if (content) note.content = content;
         if (tags) note.tags = tags;
-        if (isPinned) note.isPinned = isPinned;
+        if (typeof isPinned !== 'undefined') note.isPinned = isPinned;
+
         await note.save();
-        console.log("Note updated:", note);
         return res.json({
             error: false,
             message: "Note updated successfully",
@@ -222,18 +179,10 @@ app.put("/edit-note/:id", authenticateToken, async (req, res) => {
 
 // Get all notes
 app.get("/get-notes", authenticateToken, async (req, res) => {
+    const { user } = req.user;
+
     try {
-        // Ensure that req.user is populated with the correct user
-        const { user } = req.user;
-        console.log('Authenticated user:', user);  // Check if user data is correctly fetched
-        
-        if (!user || !user._id) {
-            return res.status(400).json({ error: true, message: 'Invalid user data from token' });
-        }
-
         const notes = await Note.find({ userId: user._id }).sort({ isPinned: -1 });
-        console.log("All notes retrieved:", notes.length);
-
         return res.json({
             error: false,
             message: "All notes retrieved successfully",
@@ -245,18 +194,18 @@ app.get("/get-notes", authenticateToken, async (req, res) => {
     }
 });
 
-
 // Delete note
 app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
-    const noteId = req.params.noteId;
+    const { noteId } = req.params;
     const { user } = req.user;
+
     try {
-        const note = await Note.findOne({ _id: noteId, user: user._id });
+        const note = await Note.findOne({ _id: noteId, userId: user._id });
         if (!note) {
             return res.status(404).json({ error: true, message: "Note not found" });
         }
+
         await note.deleteOne();
-        console.log("Note deleted:", noteId);
         return res.json({
             error: false,
             message: "Note deleted successfully",
@@ -269,19 +218,18 @@ app.delete("/delete-note/:noteId", authenticateToken, async (req, res) => {
 
 // Update isPinned
 app.put("/update-note-pinned/:noteId", authenticateToken, async (req, res) => {
-    const noteId = req.params.noteId;
+    const { noteId } = req.params;
     const { isPinned } = req.body;
     const { user } = req.user;
 
     try {
-        const note = await Note.findOne({ _id: noteId, user: user._id });
+        const note = await Note.findOne({ _id: noteId, userId: user._id });
         if (!note) {
             return res.status(404).json({ error: true, message: "Note not found" });
         }
 
         note.isPinned = isPinned || false;
         await note.save();
-        console.log("Note pinned state updated:", noteId);
         return res.json({
             error: false,
             message: "Note updated successfully",
@@ -294,13 +242,14 @@ app.put("/update-note-pinned/:noteId", authenticateToken, async (req, res) => {
 });
 
 // Search notes
-app.get("/search-notes/", authenticateToken, async (req, res) => {
+app.get("/search-notes", authenticateToken, async (req, res) => {
     const { user } = req.user;
     const { query } = req.query;
 
     if (!query) {
         return res.status(400).json({ error: true, message: "Search query is required" });
     }
+
     try {
         const matchingNotes = await Note.find({
             userId: user._id,
@@ -309,14 +258,13 @@ app.get("/search-notes/", authenticateToken, async (req, res) => {
                 { content: { $regex: new RegExp(query, "i") } },
             ],
         });
-        console.log("Search results:", matchingNotes.length);
         return res.json({
             error: false,
             notes: matchingNotes,
             message: "Notes retrieved successfully",
         });
-    } catch (error) {
-        console.error("Error searching notes:", error);
+    } catch (err) {
+        console.error("Error searching notes:", err);
         return res.status(500).json({
             error: true,
             message: "Internal Server Error",

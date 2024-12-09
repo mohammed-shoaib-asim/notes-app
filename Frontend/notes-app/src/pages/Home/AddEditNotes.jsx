@@ -29,32 +29,55 @@ const AddEditNotes = ({ noteData, type, getAllNotes, onClose, showToastMessage }
     }
   };
 
-  // Edit note
+
+
+
+
+
+
+
   const editNote = async () => {
-    if (!noteData || !noteData._id) {
-      console.error("Note data or note ID is missing.");
-      return;
+  
+
+    const noteId = noteData && noteData._id;
+    if (!noteId) {
+        setError("Note ID is missing.");
+        return;
     }
 
-    const noteId = noteData._id;
+    
 
     try {
-      const response = await axiosInstance.put(`/edit-note/${noteId}`, {
-        title,
-        content,
-        tags,
-      });
-      if (response.data && response.data.note) {
-        showToastMessage('Note Updated successfully');
-        getAllNotes();
-        onClose();
-      }
+        const response = await axiosInstance.put(`/edit-note/${noteId}`, {
+            title,
+            content,
+            tags,
+            isPinned: noteData.isPinned, // Use the existing value if isPinned isn't being edited
+        });
+
+        if (response.data && response.data.note) {
+            showToastMessage('Note updated successfully');
+            getAllNotes();
+            onClose();
+        } else {
+            setError("Failed to update the note.");
+        }
     } catch (error) {
-      if (error.response && error.response.data && error.response.data.message) {
-        setError(error.response.data.message);
-      }
+        console.error("Error updating note:", error);
+        if (error.response?.data?.message) {
+            setError(error.response.data.message);
+        } else {
+            setError("An error occurred while updating the note.");
+        }
     }
-  };
+};
+
+
+
+
+
+
+
 
   const handleAddNote = () => {
     if (!title) {
@@ -92,7 +115,7 @@ const AddEditNotes = ({ noteData, type, getAllNotes, onClose, showToastMessage }
         <input
           type='text'
           className='text-2xl text-slate-950 outline-none'
-          placeholder='Go to the gym'
+          placeholder='Enter title'
           value={title}
           onChange={({ target }) => setTitle(target.value)}
         />
